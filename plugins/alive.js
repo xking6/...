@@ -42,7 +42,7 @@ const formatStatusInfo = (pushname, harareTime, harareDate, runtimeHours, runtim
 │   ᴅᴜᴇ ᴛᴏ ᴛʜᴇ ᴜsᴀɢᴇ ᴏғ ᴛʜɪs ʙᴏᴛ.
 │   ᴜsᴇ ɪᴛ ᴡɪsᴇʟʏ ᴀɴᴅ ᴀᴛ ʏᴏᴜʀ ᴏᴡɴ ʀɪsᴋ ⚠️
 │
-├─ 🔗 ${config.REPO || 'https://github.com/Malvin-XD'}
+├─ 🔗 ${config.REPO || 'https://github.com/Malvin-BXD'}
 │
 ╰───〔 🥰 〕───
 > ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴍᴀʟᴠɪɴ xᴅ
