@@ -19,7 +19,7 @@ async (malvin, mek, m, { from, reply }) => {
         const [, username] = githubRepoURL.match(/github\.com\/([^/]+)\/([^/]+)/);
 
         // Fetch repo data from GitHub API
-        const response = await fetch(`https://api.github.com/repos/XdKing2/MALVIN-XD`);
+        const response = await fetch(`https://api.github.com/repos/XdKing2/MALVIN-BXD`);
         if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
 
         const repoData = await response.json();
