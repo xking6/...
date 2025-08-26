@@ -15,7 +15,6 @@ const os = require('os');
 const { exec } = require('child_process');
 const axios = require('axios');
 const FormData = require('form-data');
-const { setConfig, getConfig } = require("../lib/configdb");
 
 // Placeholder for soft reload function (implement based on your bot's needs)
 async function reloadConfig() {
@@ -71,8 +70,8 @@ malvin({
     }
 
     // Update config
-    await setConfig("MENU_IMAGE_URL", imageUrl);
     config.MENU_IMAGE_URL = imageUrl;
+    process.env.MENU_IMAGE_URL = imageUrl;
 
     await reply(`✅ Bot image updated.\n\n*New URL:* ${imageUrl}`);
   } catch (err) {
@@ -95,8 +94,8 @@ malvin({
   if (!newName) return reply("❌ Provide a bot name.");
 
   // Update config
-  await setConfig("BOT_NAME", newName);
   config.BOT_NAME = newName;
+  process.env.BOT_NAME = newName;
 
   await reply(`✅ Bot name updated to: *${newName}*`);
 });
@@ -115,8 +114,8 @@ malvin({
   if (!name) return reply("❌ Provide an owner name.");
 
   // Update config
-  await setConfig("OWNER_NAME", name);
   config.OWNER_NAME = name;
+  process.env.OWNER_NAME = name;
 
   await reply(`✅ Owner name updated to: *${name}*`);
 });
@@ -135,11 +134,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.WELCOME = "true";
-    await setConfig("WELCOME", "true");
+    process.env.WELCOME = "true";
     return reply("✅ Welcome messages are now enabled.");
   } else if (status === "off") {
     config.WELCOME = "false";
-    await setConfig("WELCOME", "false");
+    process.env.WELCOME = "false";
     return reply("❌ Welcome messages are now disabled.");
   } else {
     return reply(`Example: .welcome on`);
@@ -160,11 +159,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.GOODBYE = "true";
-    await setConfig("GOODBYE", "true");
+    process.env.GOODBYE = "true";
     return reply("✅ Goodbye messages are now enabled.");
   } else if (status === "off") {
     config.GOODBYE = "false";
-    await setConfig("GOODBYE", "false");
+    process.env.GOODBYE = "false";
     return reply("❌ Goodbye messages are now disabled.");
   } else {
     return reply(`Example: .goodbye on`);
@@ -182,7 +181,7 @@ malvin({
 }, async (malvin, mek, m, { args, isCreator, reply }) => {
   if (!isCreator) return reply("*📛 Only the owner can use this command!*");
 
-  const currentMode = await getConfig("MODE") || "public";
+  const currentMode = config.MODE || process.env.MODE || "public";
 
   if (!args[0]) {
     return reply(`📌 Current mode: *${currentMode}*\n\nUsage: .mode private OR .mode public`);
@@ -191,8 +190,8 @@ malvin({
   const modeArg = args[0].toLowerCase();
 
   if (["private", "public"].includes(modeArg)) {
-    await setConfig("MODE", modeArg);
     config.MODE = modeArg;
+    process.env.MODE = modeArg;
     await reply(`✅ Bot mode is now set to *${modeArg.toUpperCase()}*.`);
     await reloadConfig(); // Soft reload for command listeners if needed
   } else {
@@ -214,11 +213,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.ANTI_CALL = "true";
-    await setConfig("ANTI_CALL", "true");
+    process.env.ANTI_CALL = "true";
     return reply("*✅ αɴтι-¢αℓℓ нαѕ вєєɴ єɴαвℓє∂*");
   } else if (status === "off") {
     config.ANTI_CALL = "false";
-    await setConfig("ANTI_CALL", "false");
+    process.env.ANTI_CALL = "false";
     return reply("*❌ αɴтι-¢αℓℓ нαѕ вєєɴ ∂ιѕαвℓє∂*");
   } else {
     return reply(`*🏷️ єχαмρℓє: αɴтι-¢αℓℓ σɴ/σff*`);
@@ -242,7 +241,7 @@ malvin({
   }
 
   config.AUTO_TYPING = status === "on" ? "true" : "false";
-  await setConfig("AUTO_TYPING", status === "on" ? "true" : "false");
+  process.env.AUTO_TYPING = status === "on" ? "true" : "false";
   return reply(`Auto typing has been turned ${status}.`);
 });
 
@@ -260,11 +259,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.ALWAYS_ONLINE = "true";
-    await setConfig("ALWAYS_ONLINE", "true");
+    process.env.ALWAYS_ONLINE = "true";
     return reply("Always online feature is now enabled.");
   } else if (status === "off") {
     config.ALWAYS_ONLINE = "false";
-    await setConfig("ALWAYS_ONLINE", "false");
+    process.env.ALWAYS_ONLINE = "false";
     return reply("Always online feature is now disabled.");
   } else {
     return reply(`*🫟 ᴇxᴀᴍᴘʟᴇ:  .alwaysonline on*`);
@@ -285,11 +284,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.AUTO_RECORDING = "true";
-    await setConfig("AUTO_RECORDING", "true");
+    process.env.AUTO_RECORDING = "true";
     return reply("Auto recording is now enabled.");
   } else if (status === "off") {
     config.AUTO_RECORDING = "false";
-    await setConfig("AUTO_RECORDING", "false");
+    process.env.AUTO_RECORDING = "false";
     return reply("Auto recording is now disabled.");
   } else {
     return reply(`*🫟 ᴇxᴀᴍᴘʟᴇ:  .autorecoding on*`);
@@ -310,11 +309,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.AUTO_STATUS_REACT = "true";
-    await setConfig("AUTO_STATUS_REACT", "true");
+    process.env.AUTO_STATUS_REACT = "true";
     return reply("Autoreact of statuses is now enabled.");
   } else if (status === "off") {
     config.AUTO_STATUS_REACT = "false";
-    await setConfig("AUTO_STATUS_REACT", "false");
+    process.env.AUTO_STATUS_REACT = "false";
     return reply("Autoreact of statuses is now disabled.");
   } else {
     return reply(`*🫟 ᴇxᴀᴍᴘʟᴇ:  .autostatusreact on*`);
@@ -334,11 +333,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.AUTO_STATUS_SEEN = "true";
-    await setConfig("AUTO_STATUS_SEEN", "true");
+    process.env.AUTO_STATUS_SEEN = "true";
     return reply("Autoview of statuses is now enabled.");
   } else if (status === "off") {
     config.AUTO_STATUS_SEEN = "false";
-    await setConfig("AUTO_STATUS_SEEN", "false");
+    process.env.AUTO_STATUS_SEEN = "false";
     return reply("Autoview of statuses is now disabled.");
   } else {
     return reply(`Example: .autostatusview on`);
@@ -358,11 +357,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.READ_MESSAGE = "true";
-    await setConfig("READ_MESSAGE", "true");
+    process.env.READ_MESSAGE = "true";
     return reply("Read message feature is now enabled.");
   } else if (status === "off") {
     config.READ_MESSAGE = "false";
-    await setConfig("READ_MESSAGE", "false");
+    process.env.READ_MESSAGE = "false";
     return reply("Read message feature is now disabled.");
   } else {
     return reply(`_example:  .read-message on_`);
@@ -383,11 +382,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.ANTI_BAD_WORD = "true";
-    await setConfig("ANTI_BAD_WORD", "true");
+    process.env.ANTI_BAD_WORD = "true";
     return reply("*Anti bad word is now enabled.*");
   } else if (status === "off") {
     config.ANTI_BAD_WORD = "false";
-    await setConfig("ANTI_BAD_WORD", "false");
+    process.env.ANTI_BAD_WORD = "false";
     return reply("*Anti bad word feature is now disabled*");
   } else {
     return reply(`_example:  .antibad on_`);
@@ -408,11 +407,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.AUTO_STICKER = "true";
-    await setConfig("AUTO_STICKER", "true");
+    process.env.AUTO_STICKER = "true";
     return reply("Auto-sticker feature is now enabled.");
   } else if (status === "off") {
     config.AUTO_STICKER = "false";
-    await setConfig("AUTO_STICKER", "false");
+    process.env.AUTO_STICKER = "false";
     return reply("Auto-sticker feature is now disabled.");
   } else {
     return reply(`_example:  .autosticker on_`);
@@ -433,11 +432,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.AUTO_REPLY = "true";
-    await setConfig("AUTO_REPLY", "true");
+    process.env.AUTO_REPLY = "true";
     return reply("*Auto-reply is now enabled.*");
   } else if (status === "off") {
     config.AUTO_REPLY = "false";
-    await setConfig("AUTO_REPLY", "false");
+    process.env.AUTO_REPLY = "false";
     return reply("Auto-reply feature is now disabled.");
   } else {
     return reply(`*🫟 ᴇxᴀᴍᴘʟᴇ: . ᴀᴜᴛᴏʀᴇᴘʟʏ ᴏɴ*`);
@@ -458,11 +457,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.AUTO_REACT = "true";
-    await setConfig("AUTO_REACT", "true");
+    process.env.AUTO_REACT = "true";
     await reply("Autoreact feature is now enabled.");
   } else if (status === "off") {
     config.AUTO_REACT = "false";
-    await setConfig("AUTO_REACT", "false");
+    process.env.AUTO_REACT = "false";
     await reply("Autoreact feature is now disabled.");
   } else {
     await reply(`*🔥 ᴇxᴀᴍᴘʟᴇ: .ᴀᴜᴛᴏʀᴇᴀᴄᴛ ᴏɴ*`);
@@ -483,11 +482,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.AUTO_STATUS_REPLY = "true";
-    await setConfig("AUTO_STATUS_REPLY", "true");
+    process.env.AUTO_STATUS_REPLY = "true";
     return reply("Status-reply feature is now enabled.");
   } else if (status === "off") {
     config.AUTO_STATUS_REPLY = "false";
-    await setConfig("AUTO_STATUS_REPLY", "false");
+    process.env.AUTO_STATUS_REPLY = "false";
     return reply("Status-reply feature is now disabled.");
   } else {
     return reply(`*🫟 ᴇxᴀᴍᴘʟᴇ:  .sᴛᴀᴛᴜsʀᴇᴘʟʏ ᴏɴ*`);
@@ -511,11 +510,11 @@ malvin({
 
     if (args[0] === "on") {
       config.ANTI_BOT = "true";
-      await setConfig("ANTI_BOT", "true");
+      process.env.ANTI_BOT = "true";
       await reply("ANTI_BOT feature is now enabled in this group.");
     } else if (args[0] === "off") {
       config.ANTI_BOT = "false";
-      await setConfig("ANTI_BOT", "false");
+      process.env.ANTI_BOT = "false";
       await reply("ANTI_BOT feature is now disabled in this group.");
     } else {
       await reply(`*Invalid input! Use either 'on' or 'off'. Example: .antibot on*`);
@@ -542,11 +541,11 @@ malvin({
 
     if (args[0] === "on") {
       config.ANTI_LINK = "true";
-      await setConfig("ANTI_LINK", "true");
+      process.env.ANTI_LINK = "true";
       await reply("Anti-link feature is now enabled in this group.");
     } else if (args[0] === "off") {
       config.ANTI_LINK = "false";
-      await setConfig("ANTI_LINK", "false");
+      process.env.ANTI_LINK = "false";
       await reply("Anti-link feature is now disabled in this group.");
     } else {
       await reply(`*Invalid input! Use either 'on' or 'off'. Example: .antilink on*`);
@@ -569,11 +568,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.MENTION_REPLY = "true";
-    await setConfig("MENTION_REPLY", "true");
+    process.env.MENTION_REPLY = "true";
     return reply("Mention Reply feature is now enabled.");
   } else if (status === "off") {
     config.MENTION_REPLY = "false";
-    await setConfig("MENTION_REPLY", "false");
+    process.env.MENTION_REPLY = "false";
     return reply("Mention Reply feature is now disabled.");
   } else {
     return reply(`_example:  .mee on_`);
@@ -593,11 +592,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.ADMIN_ACTION = "true";
-    await setConfig("ADMIN_ACTION", "true");
+    process.env.ADMIN_ACTION = "true";
     return reply("✅ Admin event notifications are now enabled.");
   } else if (status === "off") {
     config.ADMIN_ACTION = "false";
-    await setConfig("ADMIN_ACTION", "false");
+    process.env.ADMIN_ACTION = "false";
     return reply("❌ Admin event notifications are now disabled.");
   } else {
     return reply(`Example: .admin-events on`);
@@ -618,11 +617,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.OWNER_REACT = "true";
-    await setConfig("OWNER_REACT", "true");
+    process.env.OWNER_REACT = "true";
     await reply("Owner react feature is now enabled.");
   } else if (status === "off") {
     config.OWNER_REACT = "false";
-    await setConfig("OWNER_REACT", "false");
+    process.env.OWNER_REACT = "false";
     await reply("Owner react feature is now disabled.");
   } else {
     await reply(`*🔥 ᴇxᴀᴍᴘʟᴇ: .ᴏᴡɴᴇʀʀᴇᴀᴄᴛ ᴏɴ*`);
@@ -645,11 +644,11 @@ malvin({
 
     if (args[0] === "on") {
       config.DELETE_LINKS = "true";
-      await setConfig("DELETE_LINKS", "true");
+      process.env.DELETE_LINKS = "true";
       reply("✅ DELETE_LINKS is now enabled.");
     } else if (args[0] === "off") {
       config.DELETE_LINKS = "false";
-      await setConfig("DELETE_LINKS", "false");
+      process.env.DELETE_LINKS = "false";
       reply("❌ DELETE_LINKS is now disabled.");
     } else {
       reply("Usage: *.deletelink on/off*");
@@ -673,11 +672,11 @@ malvin({
   const status = args[0]?.toLowerCase();
   if (status === "on") {
     config.CUSTOM_REACT = "true";
-    await setConfig("CUSTOM_REACT", "true");
+    process.env.CUSTOM_REACT = "true";
     return reply("✅ Custom reactions are now enabled.");
   } else if (status === "off") {
     config.CUSTOM_REACT = "false";
-    await setConfig("CUSTOM_REACT", "false");
+    process.env.CUSTOM_REACT = "false";
     return reply("❌ Custom reactions are now disabled.");
   } else {
     return reply(`Example: .customreact on`);
@@ -699,8 +698,8 @@ malvin({
   if (!emojiList) return reply("❌ Please provide a comma-separated list of emojis.\n\nExample:\n.setreactemoji 💖,💗,💘,💕");
 
   // Update config
-  await setConfig("CUSTOM_REACT_EMOJIS", emojiList);
   config.CUSTOM_REACT_EMOJIS = emojiList;
+  process.env.CUSTOM_REACT_EMOJIS = emojiList;
 
   await reply(`✅ Custom reaction emojis updated to:\n${emojiList}`);
 });
@@ -721,7 +720,7 @@ malvin({
 
   setPrefix(newPrefix);
   config.PREFIX = newPrefix;
-  await setConfig("PREFIX", newPrefix);
+  process.env.PREFIX = newPrefix;
   await reloadConfig(); // Soft reload for command listeners
 
   return reply(`*✅ ᴘʀᴇғɪx ᴜᴘᴅᴀᴛᴇᴅ ᴛᴏ: ${newPrefix}*`);

@@ -4,36 +4,43 @@ const fs = require('fs');
 const path = require("path");
 const AdmZip = require("adm-zip");
 const config = require('../settings');
-const sqlite3 = require('sqlite3').verbose();
-const { promisify } = require('util');
 
-// Database setup
-const dbPath = path.join(__dirname, '../lib/update.db');
-const db = new sqlite3.Database(dbPath);
+// JSON file for update tracking
+const updateFilePath = path.join(__dirname, '../lib/updates.json');
 
-// Promisify db methods
-const dbRun = promisify(db.run.bind(db));
-const dbGet = promisify(db.get.bind(db));
-const dbAll = promisify(db.all.bind(db));
+// Initialize updates file if it doesn't exist
+if (!fs.existsSync(updateFilePath)) {
+  fs.writeFileSync(updateFilePath, JSON.stringify({ updates: [] }, null, 2));
+}
 
-// Initialize database
-(async function() {
+// Helper functions for JSON operations
+function readUpdates() {
   try {
-    await dbRun(`CREATE TABLE IF NOT EXISTS updates (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      version TEXT UNIQUE,
-      update_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-      changes TEXT
-    )`);
+    const data = fs.readFileSync(updateFilePath, 'utf8');
+    return JSON.parse(data).updates;
   } catch (e) {
-    console.error('Database initialization error:', e);
+    console.error('Error reading updates file:', e);
+    return [];
   }
-})();
+}
+
+function writeUpdate(version, changes) {
+  try {
+    const updates = readUpdates();
+    updates.push({
+      version,
+      changes,
+      update_date: new Date().toISOString()
+    });
+    fs.writeFileSync(updateFilePath, JSON.stringify({ updates }, null, 2));
+  } catch (e) {
+    console.error('Error writing to updates file:', e);
+  }
+}
 
 // Improved version checking
 async function getVersionInfo() {
   try {
-    // Get local version from package.json or git
     let localVersion = "unknown";
     
     // Try package.json first
@@ -57,10 +64,10 @@ async function getVersionInfo() {
       } catch {}
     }
     
-    // Fallback to database
+    // Fallback to updates file
     if (localVersion === "unknown") {
-      const lastUpdate = await dbGet("SELECT version FROM updates ORDER BY update_date DESC LIMIT 1");
-      localVersion = lastUpdate?.version || "unknown";
+      const updates = readUpdates();
+      localVersion = updates[updates.length - 1]?.version || "unknown";
     }
     
     return localVersion;
@@ -81,7 +88,7 @@ malvin({
   if (!isOwner) return reply("❌ Owner only command!");
   
   try {
-    const repoUrl = config.REPO || "https://github.com/XdKing2/MALVINB-BXD";
+    const repoUrl = config.REPO || "https://github.com/XdKing2/MALVIN-XD";
     const repoApiUrl = repoUrl.replace('github.com', 'api.github.com/repos');
     
     // Get current local version
@@ -129,7 +136,7 @@ malvin({
     // Process ZIP
     const zip = new AdmZip(data);
     const zipEntries = zip.getEntries();
-    const protectedFiles = ["settings.js", "app.json", "data", "lib/update.db", "package-lock.json"];
+    const protectedFiles = ["settings.js", "app.json", "data", "lib/updates.json", "package-lock.json"];
     const basePath = `${repoUrl.split('/').pop()}-main/`;
     
     await reply("🔄 Applying updates...");
@@ -151,21 +158,13 @@ malvin({
     }
 
     // Record update
-    try {
-      await dbRun(
-        "INSERT OR IGNORE INTO updates (version, changes) VALUES (?, ?)",
-        [latestVersion, changes]
-      );
-    } catch (dbError) {
-      console.error('Database update error:', dbError);
-    }
+    writeUpdate(latestVersion, changes);
 
     await reply(`✅ Update to ${latestVersion} complete!\n\nRestarting...`);
     setTimeout(() => process.exit(0), 2000);
 
   } catch (error) {
     console.error("Update error:", error);
-    reply(`❌ Update failed: ${error.message}\n\nPlease update manually from:\n${config.REPO || "https://github.com/XdKing2/MALVIN-BXD"}`);
+    reply(`❌ Update failed: ${error.message}\n\nPlease update manually from:\n${config.REPO || "https://github.com/XdKing2/MALVIN-XD"}`);
   }
 });
-
