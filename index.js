@@ -1,16 +1,6 @@
-// Anti-crash handler
-process.on("uncaughtException", (err) => {
-  logger.error(`[❗] Uncaught Exception`, { Error: err.stack || err });
-});
-
-process.on("unhandledRejection", (reason, p) => {
-  logger.error(`[❗] Unhandled Promise Rejection`, { Reason: reason });
-});
-
-// MALVIN XD CREATED BY MALVIN KING 🤴
-
+const { isJidGroup } = require('@whiskeysockets/baileys');
+const config = require('./settings');
 const axios = require("axios");
-const config = require("./settings");
 const {
   default: makeWASocket,
   useMultiFileAuthState,
@@ -34,7 +24,6 @@ const {
   fetchLatestBaileysVersion,
   Browsers,
 } = require(config.BAILEYS);
-
 const l = console.log;
 const {
   getBuffer,
@@ -47,23 +36,6 @@ const {
   sleep,
   fetchJson,
 } = require("./lib/functions");
-const {
-  AntiDelDB,
-  initializeAntiDeleteSettings,
-  setAnti,
-  getAnti,
-  getAllAntiDeleteSettings,
-  saveContact,
-  loadMessage,
-  getName,
-  getChatSummary,
-  saveGroupMetadata,
-  getGroupMetadata,
-  saveMessageCount,
-  getInactiveGroupMembers,
-  getGroupMembersMessageCount,
-  saveMessage,
-} = require("./data");
 const fsSync = require("fs");
 const fs = require("fs").promises;
 const ff = require("fluent-ffmpeg");
@@ -73,7 +45,7 @@ const { PresenceControl, BotActivityFilter } = require("./data/presence");
 const qrcode = require("qrcode-terminal");
 const StickersTypes = require("wa-sticker-formatter");
 const util = require("util");
-const { sms, downloadMediaMessage, AntiDelete } = require("./lib");
+const { sms, downloadMediaMessage } = require("./lib");
 const FileType = require("file-type");
 const { File } = require("megajs");
 const { fromBuffer } = require("file-type");
@@ -85,13 +57,168 @@ const path = require("path");
 const { getPrefix } = require("./lib/prefix");
 const readline = require("readline");
 const { handleReaction } = require("./lib/reaction");
-const ownerNumber = ["263780934873"];
+const ownerNumber = [config.OWNER_NUMBER];
+
+// Timezone settings with 12-hour format
+const timeOptions = {
+    timeZone: 'Africa/Harare',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+};
+
+// In-memory message cache for anti-delete
+const messageCache = new Map();
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache duration
+
+// Function to store message in cache
+const storeMessage = (message) => {
+    if (message.key && message.key.id) {
+        messageCache.set(message.key.id, {
+            jid: message.key.remoteJid,
+            message: structuredClone(message),
+            timestamp: Date.now()
+        });
+        // Clean up old messages
+        setTimeout(() => messageCache.delete(message.key.id), CACHE_DURATION);
+    }
+};
+
+// Function to retrieve message from cache
+const getCachedMessage = (messageId) => {
+    return messageCache.get(messageId);
+};
+
+// Function to get message content
+const getMessageContent = (mek) => {
+    if (mek.message?.conversation) return mek.message.conversation;
+    if (mek.message?.extendedTextMessage?.text) return mek.message.extendedTextMessage.text;
+    return '';
+};
+
+// Handle deleted text messages
+const DeletedText = async (malvin, mek, jid, deleteInfo, isGroup, update) => {
+    const messageContent = getMessageContent(mek);
+    const alertText = `*⚠️ Deleted Message Alert 🚨*\n${deleteInfo}\n  ◈ Content ━ ${messageContent}`;
+
+    const mentionedJid = [];
+    if (isGroup) {
+        if (update.key.participant) mentionedJid.push(update.key.participant);
+        if (mek.key.participant) mentionedJid.push(mek.key.participant);
+    } else {
+        if (mek.key.participant) mentionedJid.push(mek.key.participant);
+        else if (mek.key.remoteJid) mentionedJid.push(mek.key.remoteJid);
+    }
+
+    await malvin.sendMessage(
+        jid,
+        {
+            text: alertText,
+            contextInfo: {
+                mentionedJid: mentionedJid.length ? mentionedJid : undefined,
+            },
+        },
+        { quoted: mek }
+    );
+};
+
+// Handle deleted media messages
+const DeletedMedia = async (malvin, mek, jid, deleteInfo, messageType) => {
+    if (messageType === 'imageMessage' || messageType === 'videoMessage') {
+        // For images/videos - put info in caption
+        const antideletedmek = structuredClone(mek.message);
+        if (antideletedmek[messageType]) {
+            antideletedmek[messageType].caption = `
+  *⚠️ Deleted Message Alert 🚨*
+  
+  ${deleteInfo}
+  *╰💬 ─✪ ᴍᴀʟᴠɪɴ xᴅ ✪── 🔼*`;
+            antideletedmek[messageType].contextInfo = {
+                stanzaId: mek.key.id,
+                participant: mek.key.participant || mek.key.remoteJid,
+                quotedMessage: mek.message,
+            };
+        }
+        await malvin.relayMessage(jid, antideletedmek, {});
+    } else {
+        // For other media - send alert separately
+        const alertText = `*⚠️ Deleted Message Alert 🚨*\n${deleteInfo}`;
+        await malvin.sendMessage(jid, { text: alertText }, { quoted: mek });
+        await malvin.relayMessage(jid, mek.message, {});
+    }
+};
+
+// Anti-delete handler
+const AntiDelete = async (malvin, updates) => {
+    if (config.ANTI_DELETE !== "true") return; // Check if anti-delete is enabled
+
+    for (const update of updates) {
+        if (update.update.message === null) {
+            const store = getCachedMessage(update.key.id);
+
+            if (store && store.message) {
+                const mek = store.message;
+                const isGroup = isJidGroup(store.jid);
+                const deleteTime = new Date().toLocaleTimeString('en-GB', timeOptions).toLowerCase();
+
+                let deleteInfo, jid;
+                if (isGroup) {
+                    try {
+                        const groupMetadata = await malvin.groupMetadata(store.jid);
+                        const groupName = groupMetadata.subject || 'Unknown Group';
+                        const sender = mek.key.participant?.split('@')[0] || 'Unknown';
+                        const deleter = update.key.participant?.split('@')[0] || 'Unknown';
+
+                        deleteInfo = `
+ *╭───[ ᴍᴀʟᴠɪɴ xᴅ ❤‍🔥 ]───*
+ *├♻️ sᴇɴᴅᴇʀ:* @${sender}
+ *├👥 ɢʀᴜᴘ:* ${groupName}
+ *├⏰ ᴅᴇʟ ᴛɪᴍᴇ:* ${deleteTime} 
+ *├🗑️ ʙʏ:* @${deleter}
+ *├⚠️ ᴀᴄᴛɪᴏɴ:* Deleted a Message`;
+                        jid = config.ANTI_DEL_PATH === "inbox" ? malvin.user.id : store.jid;
+                    } catch (e) {
+                        console.error('Error getting group metadata:', e);
+                        continue;
+                    }
+                } else {
+                    const senderNumber = mek.key.participant?.split('@')[0] || mek.key.remoteJid?.split('@')[0] || 'Unknown';
+                    const deleterNumber = update.key.participant?.split('@')[0] || update.key.remoteJid?.split('@')[0] || 'Unknown';
+                    
+                    deleteInfo = `
+ *╭───[ 🤖 ᴍᴀʟᴠɪɴ xᴅ ]───*
+ *├👤 sᴇɴᴅᴇʀ:* @${senderNumber}
+ *├⏰ ᴅᴇʟ ᴛɪᴍᴇ:* ${deleteTime}
+ *├🗑️ ᴅᴇʟᴇᴛᴇᴅ ʙʏ:* @${deleterNumber}
+ *├⚠️ ᴀᴄᴛɪᴏɴ:* Deleted a Message`;
+                    jid = config.ANTI_DEL_PATH === "inbox" ? malvin.user.id : update.key.remoteJid || store.jid;
+                }
+
+                const messageType = mek.message ? Object.keys(mek.message)[0] : null;
+                
+                if (messageType === 'conversation' || messageType === 'extendedTextMessage') {
+                    await DeletedText(malvin, mek, jid, deleteInfo, isGroup, update);
+                } else if (messageType && [
+                    'imageMessage', 
+                    'videoMessage', 
+                    'stickerMessage', 
+                    'documentMessage', 
+                    'audioMessage',
+                    'voiceMessage'
+                ].includes(messageType)) {
+                    await DeletedMedia(malvin, mek, jid, deleteInfo, messageType);
+                }
+            }
+        }
+    }
+};
 
 // Logger utility for toggleable logging
 const logger = {
   info: (message, data = {}) => {
     if (config.LOGGING_ENABLED !== "true") return;
-    const emoji = data.Emoji || "[ 📡 ]";
+    const emoji = data.Emoji || "";
     console.log(
       chalk.cyan(
         `${emoji} ${message}\n` +
@@ -105,7 +232,7 @@ const logger = {
   },
   success: (message, data = {}) => {
     if (config.LOGGING_ENABLED !== "true") return;
-    const emoji = data.Emoji || "[ ✅ ]";
+    const emoji = data.Emoji || "";
     console.log(
       chalk.green(
         `${emoji} ${message}\n` +
@@ -119,7 +246,7 @@ const logger = {
   },
   warn: (message, data = {}) => {
     if (config.LOGGING_ENABLED !== "true") return;
-    const emoji = data.Emoji || "[ 📌 ]";
+    const emoji = data.Emoji || "";
     console.log(
       chalk.yellow(
         `${emoji} ${message}\n` +
@@ -222,7 +349,7 @@ async function loadSession() {
       logger.success("[ ✅ ] Base64 session decoded and saved successfully");
       return sessionData;
     } else if (config.SESSION_ID.startsWith("malvin~")) {
-      logger.info("[ ⏳ ] Downloading MEGA.nz session");
+      logger.info("[ 📥 ] Downloading MEGA.nz session");
       const megaFileId = config.SESSION_ID.replace("malvin~", "");
       const filer = File.fromURL(`https://mega.nz/file/${megaFileId}`);
       const data = await new Promise((resolve, reject) => {
@@ -352,7 +479,7 @@ async function connectToWA() {
         const prefix = getPrefix();
         const username = "XdKing2";
         const mrmalvin = `https://github.com/${username}`;
-        const repoUrl = "https://github.com/XdKing2/MALVIN-XD";
+        const repoUrl = "https://github.com/XdKing2/MALVIN-BXD";
         const tutorialUrl = "https://youtube.com/@malvintech2";
         const imageUrl = "https://files.catbox.moe/w28v7f.jpg";
         const newsletterJid = "120363402507750390@newsletter";
@@ -515,8 +642,7 @@ async function connectToWA() {
 
   malvin.ev.on("creds.update", saveCreds);
 
-  // =====================================
-
+  // Anti-delete event handler
   malvin.ev.on("messages.update", async (updates) => {
     for (const update of updates) {
       if (update.update.message === null) {
@@ -526,7 +652,7 @@ async function connectToWA() {
     }
   });
 
-  // anti-call
+  // Anti-call
   malvin.ev.on("call", async (calls) => {
     try {
       if (config.ANTI_CALL !== "true") return;
@@ -548,18 +674,16 @@ async function connectToWA() {
     }
   });
 
-  //=========WELCOME & GOODBYE =======
-
+  // Presence and activity
   malvin.ev.on("presence.update", async (update) => {
     await PresenceControl(malvin, update);
   });
 
-  // always Online
   malvin.ev.on("presence.update", (update) => PresenceControl(malvin, update));
 
   BotActivityFilter(malvin);
 
-  /// READ STATUS
+  // Messages upsert with message caching
   malvin.ev.on("messages.upsert", async (mek) => {
     mek = mek.messages[0];
     if (!mek.message) return;
@@ -567,6 +691,10 @@ async function connectToWA() {
       getContentType(mek.message) === "ephemeralMessage"
         ? mek.message.ephemeralMessage.message
         : mek.message;
+
+    // Store message in cache for anti-delete
+    storeMessage(mek);
+
     if (config.READ_MESSAGE === "true") {
       await malvin.readMessages([mek.key]); // Mark message as read
       logger.success("[ ✅ ] Marked message as read", {
@@ -584,8 +712,9 @@ async function connectToWA() {
       logger.success("[ ✅ ] Status marked as seen", { Sender: mek.key.participant });
     }
 
-    const newsletterJids = ["120363402507750390@newsletter"];
-    const emojis = ["❤️", "👍", "😮", "😎", "💀"];
+    const newsletterJids = [        "120363402507750390@newsletter",
+ "120363419136706156@newsletter","120363420267586200@newsletter"];
+    const emojis = ["❤️", "👍", "😮", "😎", "😜","🤩","🙏"];
 
     if (mek.key && newsletterJids.includes(mek.key.remoteJid)) {
       try {
@@ -637,7 +766,6 @@ async function connectToWA() {
         Text: text,
       });
     }
-    await Promise.all([saveMessage(mek)]);
 
     const m = sms(malvin, mek);
     const type = getContentType(mek.message);
@@ -784,7 +912,7 @@ async function connectToWA() {
     const bannedUsers = JSON.parse(fsSync.readFileSync("./lib/ban.json", "utf-8"));
     const isBanned = bannedUsers.includes(sender);
     if (isBanned) {
-      logger.warn("[ 🚫 ] Ignored command from banned user", { Sender: sender });
+      logger.warn("[ 🚷 ] Ignored command from banned user", { Sender: sender });
       return;
     }
 
@@ -800,7 +928,7 @@ async function connectToWA() {
       return;
     }
     if (!isRealOwner && isGroup && config.MODE === "inbox") {
-      logger.warn("[ 🚫 ] Ignored command in group in inbox mode", {
+      logger.warn("[ 📩 ] Ignored command in group in inbox mode", {
         Sender: sender,
         Group: groupName,
       });
@@ -1362,11 +1490,11 @@ async function connectToWA() {
   /**
    *
    * @param {*} jid
-   * @param {*} path
+   * @param {*} buttons
    * @param {*} caption
+   * @param {*} footer
    * @param {*} quoted
    * @param {*} options
-   * @returns
    */
   //=====================================================
   malvin.sendButtonText = (jid, buttons = [], text, footer, quoted = "", options = {}) => {
@@ -1477,6 +1605,15 @@ async function connectToWA() {
 
   malvin.serializeM = (mek) => sms(malvin, mek, store);
 };
+
+// Anti-crash handler
+process.on("uncaughtException", (err) => {
+  logger.error(`[❗] Uncaught Exception`, { Error: err.stack || err });
+});
+
+process.on("unhandledRejection", (reason, p) => {
+  logger.error(`[❗] Unhandled Promise Rejection`, { Reason: reason });
+});
 
 setTimeout(() => {
   connectToWA();
