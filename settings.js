@@ -82,5 +82,5 @@ module.exports = {
   version: process.env.version || "1.5.5", // Bot version
   TIMEZONE: settings.TIMEZONE || process.env.TIMEZONE || "Africa/Harare", // Bot timezone
 
-  LOGGING_ENABLED: process.env.LOGGING_ENABLED || "", 
+  LOGGING_ENABLED: process.env.LOGGING_ENABLED || "true", 
 };
