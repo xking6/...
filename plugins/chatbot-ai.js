@@ -1,10 +1,8 @@
 const axios = require('axios');
-const { malvin, commands } = require('../malvin');
-const config = require("../settings");
-const { setConfig, getConfig } = require("../lib/configdb");
+const { malvin } = require('../malvin');
 
-// Default AI state if not set
-let AI_ENABLED = "false"; // Default enabled
+// Default AI state
+let AI_ENABLED = "false"; // Default disabled
 
 malvin({
     pattern: "aichat",
@@ -19,22 +17,14 @@ malvin({
     const status = args[0]?.toLowerCase();
     if (status === "on") {
         AI_ENABLED = "true";
-        await setConfig("AI_ENABLED", "true");
         return reply("🤖 AI chatbot is now enabled");
     } else if (status === "off") {
         AI_ENABLED = "false";
-        await setConfig("AI_ENABLED", "false");
         return reply("🤖 AI chatbot is now disabled");
     } else {
-        return reply(`Current AI state: ${AI_ENABLED === "true" ? "ON" : "OFF"}\nUsage: ${prefix}aichat on/off`);
+        return reply(`Current AI state: ${AI_ENABLED === "true" ? "ON" : "OFF"}\nUsage: aichat on/off`);
     }
 });
-
-// Initialize AI state on startup
-(async () => {
-    const savedState = await getConfig("AI_ENABLED");
-    if (savedState) AI_ENABLED = savedState;
-})();
 
 // AI Chatbot 
 malvin({
@@ -52,8 +42,8 @@ malvin({
         // Check if AI is disabled
         if (AI_ENABLED !== "true") return;
 
-        // Optional: Prevent bot responding to its own messages or commands
-        if (!body || m.key.fromMe || body.startsWith(config.PREFIX)) return;
+        // Optional: Prevent bot responding to its own messages
+        if (!body || m.key.fromMe) return;
 
         // Encode message for the query
         const query = encodeURIComponent(body);
@@ -77,5 +67,3 @@ malvin({
         reply("❌ An error occurred while contacting the AI.");
     }
 });
-
-
