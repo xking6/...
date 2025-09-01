@@ -27,26 +27,6 @@ const fetchGitHubForks = async () => {
     }
 };
 
-// Fake ChatGPT vCard
-const fakevCard = {
-    key: {
-        fromMe: false,
-        participant: "0@s.whatsapp.net",
-        remoteJid: "status@broadcast"
-    },
-    message: {
-        contactMessage: {
-            displayName: "© ᴍʀ ᴍᴀʟᴠɪɴ ᴋɪɴɢ",
-            vcard: `BEGIN:VCARD
-VERSION:3.0
-FN:Meta
-ORG:META AI;
-TEL;type=CELL;type=VOICE;waid=13135550002:+13135550002
-END:VCARD`
-        }
-    }
-};
-
 // Updated runtime function (kept for reference, but not used in the menu)
 const runtime = (seconds) => {
     seconds = Math.floor(seconds);
@@ -285,7 +265,8 @@ async function sendHelpCommand(client, mek, from, sender, quoted) {
                 image: { url: ALIVE_IMG },
                 caption: formattedInfo,
                 contextInfo: { mentionedJid: [sender] },
-                 { quoted: fakevCard });
+                quoted
+            });
         } else {
             await client.sendMessage(from, { text: formattedInfo }, { quoted });
         }
