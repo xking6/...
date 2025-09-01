@@ -15,6 +15,18 @@ const { ButtonManager } = require('../button');
 // Session storage for menu state
 const menuSessions = new Map();
 
+// Function to fetch GitHub repository forks
+const fetchGitHubForks = async () => {
+    try {
+        const repo = config.GITHUB_REPO || 'XdKing2/MALVIN-XD'; // Default repo, e.g., 'octocat/hello-world'
+        const response = await axios.get(`https://api.github.com/repos/${repo}`);
+        return response.data.forks_count || 'N/A';
+    } catch (e) {
+        console.error('Error fetching GitHub forks:', e);
+        return 'N/A';
+    }
+};
+
 // Fake ChatGPT vCard
 const fakevCard = {
     key: {
@@ -24,7 +36,7 @@ const fakevCard = {
     },
     message: {
         contactMessage: {
-            displayName: "© ᴍʀ ᴍᴀʟᴠɪɴ ᴋɪɴɢ", // Consistent with your latest input
+            displayName: "© ᴍʀ ᴍᴀʟᴠɪɴ ᴋɪɴɢ",
             vcard: `BEGIN:VCARD
 VERSION:3.0
 FN:Meta
@@ -35,19 +47,7 @@ END:VCARD`
     }
 };
 
-// Function to fetch GitHub repository forks
-const fetchGitHubForks = async () => {
-    try {
-        const repo = config.GITHUB_REPO || 'XdKing2/MALVIN-XD';
-        const response = await axios.get(`https://api.github.com/repos/${repo}`);
-        return response.data.forks_count || 'N/A';
-    } catch (e) {
-        console.error('Error fetching GitHub forks:', e);
-        return 'N/A';
-    }
-};
-
-// Updated runtime function
+// Updated runtime function (kept for reference, but not used in the menu)
 const runtime = (seconds) => {
     seconds = Math.floor(seconds);
     const days = Math.floor(seconds / 86400);
@@ -65,7 +65,6 @@ const runtime = (seconds) => {
 
     return output.trim();
 };
-
 // Tiny caps converter
 const toTinyCaps = (text) => {
     const tinyCapsMap = {
@@ -78,37 +77,31 @@ const toTinyCaps = (text) => {
 
 // Helper function to generate menu text
 async function generateMenuText(from, sender, prefix, categories, sessionId, categoryFilter = null, page = 1) {
-    const timezone = config.TIMEZONE || 'Africa/Harare';
-    const time = moment().tz(timezone).format('HH:mm:ss');
-    const date = moment().tz(timezone).format('DD/MM/YYYY');
-    const forks = await fetchGitHubForks();
+    // Time info
+        const timezone = config.TIMEZONE || 'Africa/Harare';
+        const time = moment().tz(timezone).format('HH:mm:ss');
+        const date = moment().tz(timezone).format('DD/MM/YYYY');
+
+    const commandsPerPage = 10; // Used only for category-specific pagination
+    const forks = await fetchGitHubForks(); // Fetch GitHub forks
+
 
     let menu = `
 ╭═✦〔 🤖 *${toTinyCaps(config.BOT_NAME || 'Malvin Bot')}* 〕✦═╮
-│ 👤 ᴏᴡɴᴇʀ   : @${config.OWNER_NUMBER || '263714757857'}  
+│ 👤 ᴏᴡɴᴇʀ   : @${config.OWNER_NUMBER}  
 │ 🌍 ᴍᴏᴅᴇ    : ${toTinyCaps(config.MODE || 'public')}
 │ ⏰ ᴛɪᴍᴇ    : ${time}      
 │ 📅 ᴅᴀᴛᴇ    : ${date}    
 │ 🛠️ ᴘʀᴇғɪx  : ${prefix}          
 │ 📈 ᴄᴍᴅs    : ${commands.length}   
 │ 🌐 ᴛɪᴍᴇᴢᴏɴᴇ: ${timezone}       
-│ 🚀 ᴠᴇʀsɪᴏɴ : ${config.version || '1.0.0'}  
+│ 🚀 ᴠᴇʀsɪᴏɴ : ${config.version}  
 │ 👥 ᴅᴀɪʟʏ ᴜsᴇʀs : ${forks}  
 ╰══∞
 `;
 
-    const contextInfo = {
-        mentionedJid: [sender],
-        forwardingScore: 999,
-        isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-            newsletterJid: config.NEWSLETTER_JID || '120363420989526190@newsletter',
-            newsletterName: config.OWNER_NAME || 'Malvin King',
-            serverMessageId: 143
-        }
-    };
-
     if (categoryFilter === 'viewall') {
+        // View All mode: List all categories with all their commands
         for (const cat of Object.keys(categories).sort()) {
             menu += `\n\n╭═✦〔 ${toTinyCaps(cat)} ${toTinyCaps('Menu')} 〕✦═╮\n`;
             const cmds = categories[cat] || [];
@@ -117,10 +110,10 @@ async function generateMenuText(from, sender, prefix, categories, sessionId, cat
             });
             menu += `╰════════════`;
         }
-        return { menu, totalPages: 1, contextInfo };
+        return { menu, totalPages: 1 }; // No pagination in viewall mode
     } else if (categoryFilter) {
+        // Specific category mode: List all commands in the selected category with pagination
         const cmds = categories[categoryFilter] || [];
-        const commandsPerPage = 10;
         const totalPages = Math.ceil(cmds.length / commandsPerPage);
         const start = (page - 1) * commandsPerPage;
         const end = start + commandsPerPage;
@@ -132,8 +125,9 @@ async function generateMenuText(from, sender, prefix, categories, sessionId, cat
         });
         menu += `╰════════════\n`;
         menu += `📄 ᴘᴀɢᴇ: ${page}/${totalPages}\n`;
-        return { menu, totalPages, contextInfo };
+        return { menu, totalPages };
     } else {
+        // All categories overview: Show all categories with their first commands
         for (const cat of Object.keys(categories).sort()) {
             menu += `\n\n╭═✦〔 ${toTinyCaps(cat)} ${toTinyCaps('Menu')} 〕✦═╮\n`;
             menu += `╞ • ${prefix}${categories[cat][0]}\n`;
@@ -143,14 +137,18 @@ async function generateMenuText(from, sender, prefix, categories, sessionId, cat
             }
             menu += `╰════════════`;
         }
-        return { menu, totalPages: 1, contextInfo };
+        return { menu, totalPages: 1 };
     }
+
+    menu += `\n\n> ${config.DESCRIPTION || toTinyCaps('Explore the bot commands!')}`;
+    return { menu, totalPages: 1 };
 }
 
 // Helper function for help command
-async function sendHelpCommand(client, mek, from, sender, fakevCard) {
+async function sendHelpCommand(client, mek, from, sender, quoted) {
     try {
         if (!mek || !mek.key || !mek.key.id) {
+            console.error('Invalid mek object in sendHelpCommand:', JSON.stringify(mek, null, 2));
             throw new Error('Invalid message object');
         }
 
@@ -281,50 +279,29 @@ async function sendHelpCommand(client, mek, from, sender, fakevCard) {
 > ᴘᴏᴡᴇʀᴇᴅ ʙʏ ${toTinyCaps(config.OWNER_NAME || 'malvin xd')}
         `.trim();
 
-        const contextInfo = {
-            mentionedJid: [sender],
-            forwardingScore: 999,
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: config.NEWSLETTER_JID || '120363420989526190@newsletter',
-                newsletterName: config.OWNER_NAME || 'Malvin King',
-                serverMessageId: 143
-            }
-        };
-
         const isValidImage = ALIVE_IMG && ALIVE_IMG.startsWith('http');
         if (isValidImage) {
             await client.sendMessage(from, {
                 image: { url: ALIVE_IMG },
                 caption: formattedInfo,
-                contextInfo,
-                quoted: fakevCard
+                contextInfo: { mentionedJid: [sender] },
+                quoted
             });
         } else {
-            await client.sendMessage(from, {
-                text: formattedInfo,
-                contextInfo,
-                quoted: fakevCard
-            });
+            await client.sendMessage(from, { text: formattedInfo }, { quoted });
         }
     } catch (error) {
-        console.error('Help Command Error:', error.stack);
+        console.error('Help Command Error:', error);
         await client.sendMessage(from, {
-            text: `❌ ${toTinyCaps('error')}: ${toTinyCaps('failed to show help')}. Please try again 😞`,
-            contextInfo: {
-                mentionedJid: [sender],
-                forwardingScore: 999,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: config.NEWSLETTER_JID || '120363420989526190@newsletter',
-                    newsletterName: config.OWNER_NAME || 'Malvin King',
-                    serverMessageId: 143
-                }
-            },
-            quoted: fakevCard
+            text: `❌ ${toTinyCaps('error')}: ${toTinyCaps('failed to show help')}. ${error.message} 😞`,
+            quoted
         });
         if (mek && mek.key) {
-            await client.sendMessage(from, { react: { text: '❌', key: mek.key } });
+            try {
+                await client.sendMessage(from, { react: { text: '❌', key: mek.key } });
+            } catch (reactError) {
+                console.error('Failed to send error reaction:', reactError.message);
+            }
         }
     }
 }
@@ -343,11 +320,16 @@ malvin({
         // Validate mek
         if (!mek || !mek.key || !mek.key.id) {
             console.error('Invalid mek object in menu:', JSON.stringify(mek, null, 2));
-            throw new Error('Invalid message context');
+            return reply(`❌ ${toTinyCaps('invalid message context')}: please try again 😞`);
         }
 
         // Send initial reaction
-        await client.sendMessage(from, { react: { text: '⏳', key: mek.key } });
+        try {
+            await client.sendMessage(from, { react: { text: '⏳', key: mek.key } });
+        } catch (reactError) {
+            console.error('Failed to send processing reaction:', reactError.message);
+            await client.sendMessage(from, { text: toTinyCaps('processing...') }, { quoted });
+        }
 
         const prefix = getPrefix();
         const sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -364,28 +346,19 @@ malvin({
 
         // Store session
         menuSessions.set(sessionId, { categories, categoryFilter: null, page: 1 });
-        setTimeout(() => menuSessions.delete(sessionId), 2 * 60 * 1000);
+        setTimeout(() => menuSessions.delete(sessionId), 2 * 60 * 1000); // Expire after 2 minutes
 
         // Handle category filter from args or select random category if no args
         let categoryFilter = args.length ? args.join(' ').toLowerCase() : null;
         if (!categoryFilter) {
+            // Select a random category
             const categoryKeys = Object.keys(categories).sort();
             categoryFilter = categoryKeys[Math.floor(Math.random() * categoryKeys.length)];
-        } else if (!categories[categoryFilter] && categoryFilter !== 'viewall') {
+        } else if (!categories[categoryFilter]) {
             categoryFilter = null;
             await client.sendMessage(from, {
                 text: toTinyCaps('invalid category. showing random category.'),
-                contextInfo: {
-                    mentionedJid: [sender],
-                    forwardingScore: 999,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: config.NEWSLETTER_JID || '120363420989526190@newsletter',
-                        newsletterName: config.OWNER_NAME || 'Malvin King',
-                        serverMessageId: 143
-                    }
-                },
-                quoted: fakevCard
+                quoted
             });
             const categoryKeys = Object.keys(categories).sort();
             categoryFilter = categoryKeys[Math.floor(Math.random() * categoryKeys.length)];
@@ -395,10 +368,17 @@ malvin({
         }
 
         // Generate initial menu
-        const { menu, totalPages, contextInfo } = await generateMenuText(from, sender, prefix, categories, sessionId, categoryFilter);
+        const { menu, totalPages } = await generateMenuText(from, sender, prefix, categories, sessionId, categoryFilter);
 
         // Initialize ButtonManager
-        let buttonManager = new ButtonManager(client);
+        let buttonManager;
+        try {
+            buttonManager = new ButtonManager(client);
+            console.log('ButtonManager initialized');
+        } catch (error) {
+            console.error('Failed to initialize ButtonManager:', error);
+            throw new Error('Button system initialization failed');
+        }
 
         // Define buttons
         const buttons = [];
@@ -433,7 +413,7 @@ malvin({
         } else {
             const categoryButtons = Object.keys(categories)
                 .sort()
-                .slice(0, 2) // Limit to 2 to fit WhatsApp button limit
+                .slice(0, 2) // Adjust for WhatsApp button limit (max 5, reserving for View All, Help, About)
                 .map(cat => ({
                     buttonId: `menu-cat-${cat}-${sessionId}`,
                     buttonText: { displayText: `${toTinyCaps(cat)}` },
@@ -472,12 +452,13 @@ malvin({
             caption: menu,
             footer: config.FOOTER || toTinyCaps('Powered by Malvin'),
             buttons,
-            contextInfo,
+            contextInfo: { mentionedJid: [sender] },
             quoted: fakevCard
         });
 
         const sentMsg = await client.sendMessage(from, buttonsMessage);
         if (!sentMsg || !sentMsg.key || !sentMsg.key.id) {
+            console.error('Failed to send buttons message:', JSON.stringify(sentMsg, null, 2));
             throw new Error('Failed to send buttons message');
         }
         const messageId = sentMsg.key.id;
@@ -487,7 +468,7 @@ malvin({
         const actions = {
             'menu-help': async (receivedMsg) => {
                 console.log('Help button clicked');
-                await sendHelpCommand(client, receivedMsg, from, sender, fakevCard);
+                await sendHelpCommand(client, receivedMsg, from, sender, receivedMsg);
             },
             'menu-about': async (receivedMsg) => {
                 console.log('About button clicked');
@@ -501,8 +482,7 @@ malvin({
 ╰───
 > ᴘᴏᴡᴇʀᴇᴅ ʙʏ ${toTinyCaps(config.OWNER_NAME || 'malvin xd')}
                     `,
-                    contextInfo,
-                    quoted: fakevCard
+                    quoted: receivedMsg
                 });
             },
             'menu-audio': async (receivedMsg) => {
@@ -511,15 +491,12 @@ malvin({
                     await client.sendMessage(from, {
                         audio: { url: config.MENU_AUDIO_URL },
                         mimetype: 'audio/mp4',
-                        ptt: true,
-                        contextInfo,
-                        quoted: fakevCard
-                    });
+                        ptt: true
+                    }, { quoted: receivedMsg });
                 } else {
                     await client.sendMessage(from, {
                         text: toTinyCaps('no audio configured') + ' 🎵',
-                        contextInfo,
-                        quoted: fakevCard
+                        quoted: receivedMsg
                     });
                 }
             },
@@ -528,13 +505,12 @@ malvin({
                 if (!menuSessions.has(sessionId)) {
                     await client.sendMessage(from, {
                         text: toTinyCaps('session expired, please run menu again') + ' 😔',
-                        contextInfo,
-                        quoted: fakevCard
+                        quoted: receivedMsg
                     });
                     return;
                 }
                 menuSessions.set(sessionId, { ...menuSessions.get(sessionId), categoryFilter: 'viewall', page: 1 });
-                const { menu: newMenu, totalPages, contextInfo: newContextInfo } = await generateMenuText(from, sender, prefix, categories, sessionId, 'viewall');
+                const { menu: newMenu, totalPages } = await generateMenuText(from, sender, prefix, categories, sessionId, 'viewall');
                 const newButtons = [
                     { buttonId: `menu-random-${sessionId}`, buttonText: { displayText: '🎲 ʀᴀɴᴅᴏᴍ' }, type: 1 },
                     { buttonId: `menu-help-${sessionId}`, buttonText: { displayText: '❓ ʜᴇʟᴘ' }, type: 1 },
@@ -552,12 +528,12 @@ malvin({
                     caption: newMenu,
                     footer: config.FOOTER || toTinyCaps('Powered by Malvin'),
                     buttons: newButtons,
-                    contextInfo: newContextInfo,
-                    quoted: fakevCard
+                    contextInfo: { mentionedJid: [sender] },
+                    quoted: receivedMsg
                 });
                 const newSentMsg = await client.sendMessage(from, newButtonsMessage);
                 buttonManager.addHandler(newSentMsg.key.id, sessionId, (msg, btnId) => {
-                    buttonManager.handleAction(msg, btnId, actions, fakevCard);
+                    buttonManager.handleAction(msg, btnId, actions);
                 });
             },
             'menu-random': async (receivedMsg) => {
@@ -565,15 +541,14 @@ malvin({
                 if (!menuSessions.has(sessionId)) {
                     await client.sendMessage(from, {
                         text: toTinyCaps('session expired, please run menu again') + ' 😔',
-                        contextInfo,
-                        quoted: fakevCard
+                        quoted: receivedMsg
                     });
                     return;
                 }
                 const categoryKeys = Object.keys(categories).sort();
                 const randomCategory = categoryKeys[Math.floor(Math.random() * categoryKeys.length)];
                 menuSessions.set(sessionId, { ...menuSessions.get(sessionId), categoryFilter: randomCategory, page: 1 });
-                const { menu: newMenu, totalPages, contextInfo: newContextInfo } = await generateMenuText(from, sender, prefix, categories, sessionId, randomCategory);
+                const { menu: newMenu, totalPages } = await generateMenuText(from, sender, prefix, categories, sessionId, randomCategory);
                 const newButtons = [];
                 if (totalPages > 1) {
                     newButtons.push(
@@ -598,20 +573,19 @@ malvin({
                     caption: newMenu,
                     footer: config.FOOTER || toTinyCaps('Powered by Malvin'),
                     buttons: newButtons,
-                    contextInfo: newContextInfo,
-                    quoted: fakevCard
+                    contextInfo: { mentionedJid: [sender] },
+                    quoted: receivedMsg
                 });
                 const newSentMsg = await client.sendMessage(from, newButtonsMessage);
                 buttonManager.addHandler(newSentMsg.key.id, sessionId, (msg, btnId) => {
-                    buttonManager.handleAction(msg, btnId, actions, fakevCard);
+                    buttonManager.handleAction(msg, btnId, actions);
                 });
             },
             'menu-toggle-mode': async (receivedMsg) => {
                 if (!isOwner) {
                     await client.sendMessage(from, {
                         text: toTinyCaps('only owner can toggle mode') + ' 🔒',
-                        contextInfo,
-                        quoted: fakevCard
+                        quoted: receivedMsg
                     });
                     return;
                 }
@@ -620,21 +594,20 @@ malvin({
                 config.MODE = newMode;
                 await client.sendMessage(from, {
                     text: toTinyCaps(`mode changed to ${newMode}`) + ' 🔄',
-                    contextInfo,
-                    quoted: fakevCard
+                    quoted: receivedMsg
                 });
-                const { menu: newMenu, totalPages, contextInfo: newContextInfo } = await generateMenuText(from, sender, prefix, categories, sessionId, categoryFilter);
+                const { menu: newMenu } = await generateMenuText(from, sender, prefix, categories, sessionId, categoryFilter);
                 const newButtonsMessage = buttonManager.createButtonsMessage({
                     imageUrl: config.MENU_IMAGE_URL || 'https://files.catbox.moe/qumhu4.jpg',
                     caption: newMenu,
                     footer: config.FOOTER || toTinyCaps('Powered by Malvin'),
                     buttons,
-                    contextInfo: newContextInfo,
-                    quoted: fakevCard
+                    contextInfo: { mentionedJid: [sender] },
+                    quoted: receivedMsg
                 });
                 const newSentMsg = await client.sendMessage(from, newButtonsMessage);
                 buttonManager.addHandler(newSentMsg.key.id, sessionId, (msg, btnId) => {
-                    buttonManager.handleAction(msg, btnId, actions, fakevCard);
+                    buttonManager.handleAction(msg, btnId, actions);
                 });
             }
         };
@@ -646,13 +619,12 @@ malvin({
                 if (!menuSessions.has(sessionId)) {
                     await client.sendMessage(from, {
                         text: toTinyCaps('session expired, please run menu again') + ' 😔',
-                        contextInfo,
-                        quoted: fakevCard
+                        quoted: receivedMsg
                     });
                     return;
                 }
                 menuSessions.set(sessionId, { ...menuSessions.get(sessionId), categoryFilter: cat, page: 1 });
-                const { menu: newMenu, totalPages, contextInfo: newContextInfo } = await generateMenuText(from, sender, prefix, categories, sessionId, cat);
+                const { menu: newMenu, totalPages } = await generateMenuText(from, sender, prefix, categories, sessionId, cat);
                 const catButtons = [];
                 if (totalPages > 1) {
                     catButtons.push(
@@ -677,33 +649,33 @@ malvin({
                     caption: newMenu,
                     footer: config.FOOTER || toTinyCaps('Powered by Malvin'),
                     buttons: catButtons,
-                    contextInfo: newContextInfo,
-                    quoted: fakevCard
+                    contextInfo: { mentionedJid: [sender] },
+                    quoted: receivedMsg
                 });
                 const newSentMsg = await client.sendMessage(from, newButtonsMessage);
                 buttonManager.addHandler(newSentMsg.key.id, sessionId, (msg, btnId) => {
-                    buttonManager.handleAction(msg, btnId, actions, fakevCard);
+                    buttonManager.handleAction(msg, btnId, actions);
                 });
             };
         });
 
-        // Add pagination actions
+        // Add pagination actions (only for category-specific views)
         actions['menu-prev'] = async (receivedMsg) => {
             console.log('Previous page button clicked');
             if (!menuSessions.has(sessionId)) {
                 await client.sendMessage(from, {
                     text: toTinyCaps('session expired, please run menu again') + ' 😔',
-                    contextInfo,
-                    quoted: fakevCard
+                    quoted: receivedMsg
                 });
                 return;
             }
             const session = menuSessions.get(sessionId);
             if (session.categoryFilter === 'viewall') {
+                // No pagination in viewall mode, redirect to random category
                 const categoryKeys = Object.keys(categories).sort();
                 const randomCategory = categoryKeys[Math.floor(Math.random() * categoryKeys.length)];
                 menuSessions.set(sessionId, { ...session, categoryFilter: randomCategory, page: 1 });
-                const { menu: newMenu, totalPages, contextInfo: newContextInfo } = await generateMenuText(from, sender, prefix, categories, sessionId, randomCategory);
+                const { menu: newMenu, totalPages } = await generateMenuText(from, sender, prefix, categories, sessionId, randomCategory);
                 const newButtons = [];
                 if (totalPages > 1) {
                     newButtons.push(
@@ -728,18 +700,18 @@ malvin({
                     caption: newMenu,
                     footer: config.FOOTER || toTinyCaps('Powered by Malvin'),
                     buttons: newButtons,
-                    contextInfo: newContextInfo,
-                    quoted: fakevCard
+                    contextInfo: { mentionedJid: [sender] },
+                    quoted: receivedMsg
                 });
                 const newSentMsg = await client.sendMessage(from, newButtonsMessage);
                 buttonManager.addHandler(newSentMsg.key.id, sessionId, (msg, btnId) => {
-                    buttonManager.handleAction(msg, btnId, actions, fakevCard);
+                    buttonManager.handleAction(msg, btnId, actions);
                 });
                 return;
             }
             const newPage = Math.max(1, session.page - 1);
             menuSessions.set(sessionId, { ...session, page: newPage });
-            const { menu: newMenu, totalPages, contextInfo: newContextInfo } = await generateMenuText(from, sender, prefix, categories, sessionId, session.categoryFilter, newPage);
+            const { menu: newMenu, totalPages } = await generateMenuText(from, sender, prefix, categories, sessionId, session.categoryFilter, newPage);
             const newButtons = [];
             if (newPage > 1) {
                 newButtons.push({ buttonId: `menu-prev-${sessionId}`, buttonText: { displayText: '⬅️ ᴘʀᴇᴠɪᴏᴜs' }, type: 1 });
@@ -764,12 +736,12 @@ malvin({
                 caption: newMenu,
                 footer: config.FOOTER || toTinyCaps('Powered by Malvin'),
                 buttons: newButtons,
-                contextInfo: newContextInfo,
-                quoted: fakevCard
+                contextInfo: { mentionedJid: [sender] },
+                quoted: receivedMsg
             });
             const newSentMsg = await client.sendMessage(from, newButtonsMessage);
             buttonManager.addHandler(newSentMsg.key.id, sessionId, (msg, btnId) => {
-                buttonManager.handleAction(msg, btnId, actions, fakevCard);
+                buttonManager.handleAction(msg, btnId, actions);
             });
         };
         actions['menu-next'] = async (receivedMsg) => {
@@ -777,17 +749,17 @@ malvin({
             if (!menuSessions.has(sessionId)) {
                 await client.sendMessage(from, {
                     text: toTinyCaps('session expired, please run menu again') + ' 😔',
-                    contextInfo,
-                    quoted: fakevCard
+                    quoted: receivedMsg
                 });
                 return;
             }
             const session = menuSessions.get(sessionId);
             if (session.categoryFilter === 'viewall') {
+                // No pagination in viewall mode, redirect to random category
                 const categoryKeys = Object.keys(categories).sort();
                 const randomCategory = categoryKeys[Math.floor(Math.random() * categoryKeys.length)];
                 menuSessions.set(sessionId, { ...session, categoryFilter: randomCategory, page: 1 });
-                const { menu: newMenu, totalPages, contextInfo: newContextInfo } = await generateMenuText(from, sender, prefix, categories, sessionId, randomCategory);
+                const { menu: newMenu, totalPages } = await generateMenuText(from, sender, prefix, categories, sessionId, randomCategory);
                 const newButtons = [];
                 if (totalPages > 1) {
                     newButtons.push(
@@ -812,18 +784,18 @@ malvin({
                     caption: newMenu,
                     footer: config.FOOTER || toTinyCaps('Powered by Malvin'),
                     buttons: newButtons,
-                    contextInfo: newContextInfo,
-                    quoted: fakevCard
+                    contextInfo: { mentionedJid: [sender] },
+                    quoted: receivedMsg
                 });
                 const newSentMsg = await client.sendMessage(from, newButtonsMessage);
                 buttonManager.addHandler(newSentMsg.key.id, sessionId, (msg, btnId) => {
-                    buttonManager.handleAction(msg, btnId, actions, fakevCard);
+                    buttonManager.handleAction(msg, btnId, actions);
                 });
                 return;
             }
             const newPage = session.page + 1;
             menuSessions.set(sessionId, { ...session, page: newPage });
-            const { menu: newMenu, totalPages, contextInfo: newContextInfo } = await generateMenuText(from, sender, prefix, categories, sessionId, session.categoryFilter, newPage);
+            const { menu: newMenu, totalPages } = await generateMenuText(from, sender, prefix, categories, sessionId, session.categoryFilter, newPage);
             const newButtons = [];
             if (newPage > 1) {
                 newButtons.push({ buttonId: `menu-prev-${sessionId}`, buttonText: { displayText: '⬅️ ᴘʀᴇᴠɪᴏᴜs' }, type: 1 });
@@ -848,42 +820,40 @@ malvin({
                 caption: newMenu,
                 footer: config.FOOTER || toTinyCaps('Powered by Malvin'),
                 buttons: newButtons,
-                contextInfo: newContextInfo,
-                quoted: fakevCard
+                contextInfo: { mentionedJid: [sender] },
+                quoted: receivedMsg
             });
             const newSentMsg = await client.sendMessage(from, newButtonsMessage);
             buttonManager.addHandler(newSentMsg.key.id, sessionId, (msg, btnId) => {
-                buttonManager.handleAction(msg, btnId, actions, fakevCard);
+                buttonManager.handleAction(msg, btnId, actions);
             });
         };
 
         // Add button handler
-        buttonManager.addHandler(messageId, sessionId, (receivedMsg, buttonId) => {
-            console.log(`Handling button click: ${buttonId}`);
-            buttonManager.handleAction(receivedMsg, buttonId, actions, fakevCard);
-        });
+        try {
+            buttonManager.addHandler(messageId, sessionId, (receivedMsg, buttonId) => {
+                console.log(`Handling button click: ${buttonId}`);
+                buttonManager.handleAction(receivedMsg, buttonId, actions);
+            });
+        } catch (handlerError) {
+            console.error('Failed to add button handler:', handlerError);
+        }
 
         // Send success reaction
-        await client.sendMessage(from, { react: { text: '✅', key: mek.key } });
+        try {
+            await client.sendMessage(from, { react: { text: '✅', key: mek.key } });
+        } catch (reactError) {
+            console.error('Failed to send success reaction:', reactError.message);
+        }
     } catch (error) {
-        console.error('Menu Error:', error.stack);
-        await reply(`❌ ${toTinyCaps('failed to show menu')}: Please try again 😞`);
+        console.error('Menu Error:', error);
+        await reply(`❌ ${toTinyCaps('failed to show menu')}: ${error.message || 'unknown error'} 😞`);
         if (mek && mek.key) {
-            await client.sendMessage(from, {
-                text: `❌ ${toTinyCaps('error')}: ${toTinyCaps('failed to show menu')}. Please try again 😞`,
-                contextInfo: {
-                    mentionedJid: [sender],
-                    forwardingScore: 999,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: config.NEWSLETTER_JID || '120363420989526190@newsletter',
-                        newsletterName: config.OWNER_NAME || 'Malvin King',
-                        serverMessageId: 143
-                    }
-                },
-                quoted: fakevCard
-            });
-            await client.sendMessage(from, { react: { text: '❌', key: mek.key } });
+            try {
+                await client.sendMessage(from, { react: { text: '❌', key: mek.key } });
+            } catch (reactError) {
+                console.error('Failed to send error reaction:', reactError.message);
+            }
         }
     }
 });
