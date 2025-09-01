@@ -1,4 +1,14 @@
-const { malvin } = require('./malvin');
+const config = require('./settings');
+const malvin = require('./malvin');
+// Tiny caps converter (for consistent error message formatting)
+const toTinyCaps = (text) => {
+    const tinyCapsMap = {
+        a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ғ', g: 'ɢ', h: 'ʜ', i: 'ɪ',
+        j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'q', r: 'ʀ',
+        s: 's', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ'
+    };
+    return text.toLowerCase().split('').map(c => tinyCapsMap[c] || c).join('');
+};
 
 class ButtonManager {
     constructor(malvin) {
@@ -14,8 +24,27 @@ class ButtonManager {
             footer,
             buttons,
             contextInfo = {},
-            quoted
+            quoted // Ensure quoted is passed through
         } = options;
+
+        // Default contextInfo with forwarded appearance
+        const defaultContextInfo = {
+            mentionedJid: contextInfo.mentionedJid || [],
+            forwardingScore: 999,
+            isForwarded: true,
+            forwardedNewsletterMessageInfo: {
+                newsletterJid: config.NEWSLETTER_JID || '120363420989526190@newsletter', // Align with .menu
+                newsletterName: config.OWNER_NAME || 'Malvin King',
+                serverMessageId: 143
+            }
+        };
+
+        // Merge provided contextInfo with defaults
+        const mergedContextInfo = {
+            ...defaultContextInfo,
+            ...contextInfo,
+            mentionedJid: contextInfo.mentionedJid || defaultContextInfo.mentionedJid
+        };
 
         return {
             image: imageUrl ? (Buffer.isBuffer(imageUrl) ? imageUrl : { url: imageUrl }) : undefined,
@@ -23,17 +52,8 @@ class ButtonManager {
             footer,
             buttons,
             headerType: imageUrl ? 4 : 1, // Image header if imageUrl is provided
-            contextInfo: {
-                ...contextInfo,
-                mentionedJid: contextInfo.mentionedJid || [],
-                forwardingScore: 999,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: contextInfo.newsletterJid || '120363402507750390@newsletter',
-                    newsletterName: contextInfo.newsletterName || '🔥ᴍᴀʟᴠɪɴ-ʀᴇᴘᴏ🔥',
-                    serverMessageId: 143
-                }
-            }
+            contextInfo: mergedContextInfo,
+            quoted // Include quoted in the message object
         };
     }
 
@@ -47,7 +67,7 @@ class ButtonManager {
             const senderId = receivedMsg.key.remoteJid;
             const isReplyToBot = receivedMsg.message.buttonsResponseMessage.contextInfo?.stanzaId === messageId;
 
-            console.log('Button Clicked:', { buttonId, senderId, isReplyToBot }); // Debug log
+            console.log('Button Clicked:', { buttonId, senderId, isReplyToBot });
 
             if (isReplyToBot && senderId && buttonId.includes(sessionId)) {
                 await callback(receivedMsg, buttonId);
@@ -65,8 +85,20 @@ class ButtonManager {
     }
 
     // Handle button actions
-    async handleAction(receivedMsg, buttonId, actions) {
-        await this.malvin.sendMessage(receivedMsg.key.remoteJid, { react: { text: '⏳', key: receivedMsg.key } });
+    async handleAction(receivedMsg, buttonId, actions, fakevCard) { // Added fakevCard parameter
+        const from = receivedMsg.key.remoteJid;
+        const contextInfo = {
+            mentionedJid: [receivedMsg.key.participant || receivedMsg.key.remoteJid],
+            forwardingScore: 999,
+            isForwarded: true,
+            forwardedNewsletterMessageInfo: {
+                newsletterJid: config.NEWSLETTER_JID || '120363420989526190@newsletter',
+                newsletterName: config.OWNER_NAME || 'Malvin King',
+                serverMessageId: 143
+            }
+        };
+
+        await this.malvin.sendMessage(from, { react: { text: '⏳', key: receivedMsg.key } });
 
         try {
             const actionPrefix = Object.keys(actions).find(key => buttonId.startsWith(`${key}-`));
@@ -74,11 +106,15 @@ class ButtonManager {
                 throw new Error('Invalid action selected');
             }
             await actions[actionPrefix](receivedMsg);
-            await this.malvin.sendMessage(receivedMsg.key.remoteJid, { react: { text: '✅', key: receivedMsg.key } });
+            await this.malvin.sendMessage(from, { react: { text: '✅', key: receivedMsg.key } });
         } catch (error) {
-            console.error('Button Handler Error:', error);
-            await this.malvin.sendMessage(receivedMsg.key.remoteJid, { react: { text: '❌', key: receivedMsg.key } });
-            await this.malvin.sendMessage(receivedMsg.key.remoteJid, { text: `❎ Error: ${error.message || 'Action failed'}` }, { quoted: receivedMsg });
+            console.error('Button Handler Error:', error.stack);
+            await this.malvin.sendMessage(from, { react: { text: '❌', key: receivedMsg.key } });
+            await this.malvin.sendMessage(from, {
+                text: `❎ ${toTinyCaps('error')}: ${toTinyCaps(error.message || 'Action failed')}`,
+                contextInfo,
+                quoted: fakevCard
+            });
         }
     }
 }
