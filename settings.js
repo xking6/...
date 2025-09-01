@@ -33,7 +33,7 @@ module.exports = {
   AUDIO_URL: settings.AUDIO_URL || process.env.AUDIO_URL || 'https://files.catbox.moe/vkvci3.mp3', // global audio
   AUDIO_URL2: settings.AUDIO_URL2 || process.env.AUDIO_URL2 || 'https://files.catbox.moe/vkvci3.mp3', // global audio
   
-  NEWSLETTER_JID: process.env.NEWSLETTER_JID || '120363419136706156@newsletter', // Newsletter JID
+  NEWSLETTER_JID: process.env.NEWSLETTER_JID || '120363402507750390@newsletter', // Newsletter JID
 
   // ===== AUTO-RESPONSE SETTINGS =====
   AUTO_REPLY: settings.AUTO_REPLY || process.env.AUTO_REPLY || "false", // Auto-reply toggle
